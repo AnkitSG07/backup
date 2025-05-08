@@ -583,10 +583,15 @@ def remove_child():
         else:
             return jsonify({"error": "No accounts file found"}), 500
 
-        original_count = len(accounts.get("children", []))
-        accounts["children"] = [child for child in accounts.get("children", []) if child["client_id"] != client_id]
+        updated = False
+        for master in accounts.get("masters", []):
+            original_count = len(master.get("children", []))
+            master["children"] = [child for child in master.get("children", []) if child["client_id"] != client_id]
+            if len(master["children"]) < original_count:
+                updated = True
+                break
 
-        if len(accounts["children"]) < original_count:
+        if updated:
             with open("accounts.json", "w") as f:
                 json.dump(accounts, f, indent=2)
             return jsonify({'message': f"✅ Removed child {client_id}."}), 200
