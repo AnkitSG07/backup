@@ -311,6 +311,7 @@ def webhook(user_id):
         return jsonify({"error": error_msg}), 500
 
 
+# PATCH for /api/update-multiplier
 @app.route('/api/update-multiplier', methods=['POST'])
 def update_multiplier():
     data = request.json
@@ -321,39 +322,32 @@ def update_multiplier():
         return jsonify({"error": "Missing required fields"}), 400
 
     try:
-        # Validate multiplier is a float and >= 0.1
-        try:
-            new_multiplier = float(new_multiplier)
-            if new_multiplier < 0.1:
-                return jsonify({"error": "Multiplier must be at least 0.1"}), 400
-        except ValueError:
-            return jsonify({"error": "Invalid multiplier format"}), 400
+        new_multiplier = float(new_multiplier)
+        if new_multiplier < 0.1:
+            return jsonify({"error": "Multiplier must be at least 0.1"}), 400
+    except ValueError:
+        return jsonify({"error": "Invalid multiplier format"}), 400
 
-        if os.path.exists("accounts.json"):
-            with open("accounts.json", "r") as f:
-                accounts = json.load(f)
-        else:
-            return jsonify({"error": "No accounts found"}), 400
+    if os.path.exists("accounts.json"):
+        with open("accounts.json", "r") as f:
+            accounts = json.load(f)
+    else:
+        return jsonify({"error": "No accounts found"}), 400
 
-        if not isinstance(accounts.get("children"), list):
-            return jsonify({"error": "Invalid accounts file format"}), 500
-
-        updated = False
-        for child in accounts["children"]:
+    updated = False
+    for master in accounts.get("masters", []):
+        for child in master.get("children", []):
             if child["client_id"] == client_id:
                 child["multiplier"] = new_multiplier
                 updated = True
                 break
 
-        if updated:
-            with open("accounts.json", "w") as f:
-                json.dump(accounts, f, indent=2)
-            return jsonify({"message": f"Multiplier updated to {new_multiplier} for {client_id}"}), 200
-        else:
-            return jsonify({"error": "Child account not found"}), 404
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    if updated:
+        with open("accounts.json", "w") as f:
+            json.dump(accounts, f, indent=2)
+        return jsonify({"message": f"Multiplier updated to {new_multiplier} for {client_id}"}), 200
+    else:
+        return jsonify({"error": "Child account not found"}), 404
 
 
 @app.route("/marketwatch")
@@ -477,20 +471,14 @@ def set_master():
     else:
         return jsonify({"error": "No accounts file found"}), 500
 
-    # Find the new master in children or existing master
     found = None
-    if accounts.get("master") and accounts["master"]["client_id"] == client_id:
-        found = accounts["master"]
-    else:
-        for child in accounts.get("children", []):
+    for master in accounts.get("masters", []):
+        if master["client_id"] == client_id:
+            found = master
+            break
+        for child in master.get("children", []):
             if child["client_id"] == client_id:
-                found = {
-                    "broker": child["broker"],
-                    "client_id": child["client_id"],
-                    "username": child["username"],
-                    "access_token": child["access_token"],
-                    "status": child["status"]
-                }
+                found = child
                 break
 
     if not found:
@@ -502,6 +490,7 @@ def set_master():
         json.dump(accounts, f, indent=2)
 
     return jsonify({'message': f"✅ Set {client_id} as master successfully."})
+
 
 
 # Start copying for a child account
