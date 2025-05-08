@@ -320,9 +320,8 @@ function loadAccounts() {
       masterBody.innerHTML = "";
       childrenBody.innerHTML = "";
 
-      // Loop through all masters
       mastersList.forEach(master => {
-        // Add the master row
+        // Add master row
         masterBody.innerHTML += `
           <tr>
             <td><i class="bi bi-bank"></i> ${master.broker}</td>
@@ -335,7 +334,7 @@ function loadAccounts() {
           </tr>
         `;
 
-        // Add all children rows (if any)
+        // Add child rows (with master_id reference)
         const children = master.children || [];
         children.forEach(child => {
           childrenBody.innerHTML += `
@@ -352,8 +351,8 @@ function loadAccounts() {
                 </div>
               </td>
               <td>
-                <button class="btn btn-sm btn-success" onclick="startCopying('${child.client_id}')">Start</button>
-                <button class="btn btn-sm btn-warning" onclick="stopCopying('${child.client_id}')">Stop</button>
+                <button class="btn btn-sm btn-success" onclick="startCopying('${child.client_id}', '${master.client_id}')">Start</button>
+                <button class="btn btn-sm btn-warning" onclick="stopCopying('${child.client_id}', '${master.client_id}')">Stop</button>
                 <button class="btn btn-sm btn-danger" onclick="removeChild('${child.client_id}')">Remove</button>
               </td>
             </tr>
@@ -381,11 +380,24 @@ function loadAccounts() {
       });
     }
 
-    function startCopying(clientId) {
+    function startCopying(clientId, masterId) {
       fetch("/api/start-copy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: clientId })
+        body: JSON.stringify({ client_id: clientId, master_id: masterId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message);
+        loadAccounts();
+      });
+    }
+    
+    function stopCopying(clientId, masterId) {
+      fetch("/api/stop-copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: clientId, master_id: masterId })
       })
       .then(res => res.json())
       .then(data => {
@@ -394,18 +406,6 @@ function loadAccounts() {
       });
     }
 
-    function stopCopying(clientId) {
-      fetch("/api/stop-copy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: clientId })
-      })
-      .then(res => res.json())
-      .then(data => {
-        alert(data.message);
-        loadAccounts();
-      });
-    }
 
     function removeChild(clientId) {
       fetch("/api/remove-child", {
